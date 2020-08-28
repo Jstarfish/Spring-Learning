@@ -509,6 +509,27 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		}
 	}
 
+	@Override
+	@Nullable
+	protected Class<?> predictBeanType(String beanName, RootBeanDefinition mbd, Class<?>... typesToMatch) {
+		Class<?> targetType = determineTargetType(beanName, mbd, typesToMatch);
+		// Apply SmartInstantiationAwareBeanPostProcessors to predict the
+		// eventual type after a before-instantiation shortcut.
+		if (targetType != null && !mbd.isSynthetic() && hasInstantiationAwareBeanPostProcessors()) {
+			for (BeanPostProcessor bp : getBeanPostProcessors()) {
+				if (bp instanceof SmartInstantiationAwareBeanPostProcessor) {
+					SmartInstantiationAwareBeanPostProcessor ibp = (SmartInstantiationAwareBeanPostProcessor) bp;
+					Class<?> predicted = ibp.predictBeanType(targetType, beanName);
+					if (predicted != null && (typesToMatch.length != 1 || FactoryBean.class != typesToMatch[0] ||
+							FactoryBean.class.isAssignableFrom(predicted))) {
+						return predicted;
+					}
+				}
+			}
+		}
+		return targetType;
+	}
+
 	/**
 	 * Actually create the specified bean. Pre-creation processing has already happened
 	 * at this point, e.g. checking {@code postProcessBeforeInstantiation} callbacks.
@@ -532,8 +553,10 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			instanceWrapper = this.factoryBeanInstanceCache.remove(beanName);
 		}
 		if (instanceWrapper == null) {
+			// 创建 bean 对象，并将 bean 对象包裹在 BeanWrapper 对象中返回
 			instanceWrapper = createBeanInstance(beanName, mbd, args);
 		}
+		// 从 BeanWrapper 对象中获取 bean 对象，这里的 bean 指向的是一个原始的对象
 		final Object bean = instanceWrapper.getWrappedInstance();
 		Class<?> beanType = instanceWrapper.getWrappedClass();
 		if (beanType != NullBean.class) {
@@ -556,6 +579,10 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 
 		// Eagerly cache singletons to be able to resolve circular references
 		// even when triggered by lifecycle interfaces like BeanFactoryAware.
+		/*
+		 * earlySingletonExposure 用于表示是否”提前暴露“原始对象的引用，用于解决循环依赖。
+		 * 对于单例 bean，该变量一般为 true。
+		 */
 		boolean earlySingletonExposure = (mbd.isSingleton() && this.allowCircularReferences &&
 				isSingletonCurrentlyInCreation(beanName));
 		if (earlySingletonExposure) {
@@ -563,12 +590,14 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 				logger.debug("Eagerly caching bean '" + beanName +
 						"' to allow for resolving potential circular references");
 			}
+			// 添加 bean 工厂对象到 singletonFactories 缓存中，并获取原始对象的早期引用
 			addSingletonFactory(beanName, () -> getEarlyBeanReference(beanName, mbd, bean));
 		}
 
 		// Initialize the bean instance.
 		Object exposedObject = bean;
 		try {
+			// ☆ 填充属性，解析依赖
 			populateBean(beanName, mbd, instanceWrapper);
 			exposedObject = initializeBean(beanName, exposedObject, mbd);
 		}
@@ -599,11 +628,11 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 					if (!actualDependentBeans.isEmpty()) {
 						throw new BeanCurrentlyInCreationException(beanName,
 								"Bean with name '" + beanName + "' has been injected into other beans [" +
-								StringUtils.collectionToCommaDelimitedString(actualDependentBeans) +
-								"] in its raw version as part of a circular reference, but has eventually been " +
-								"wrapped. This means that said other beans do not use the final version of the " +
-								"bean. This is often the result of over-eager type matching - consider using " +
-								"'getBeanNamesOfType' with the 'allowEagerInit' flag turned off, for example.");
+										StringUtils.collectionToCommaDelimitedString(actualDependentBeans) +
+										"] in its raw version as part of a circular reference, but has eventually been " +
+										"wrapped. This means that said other beans do not use the final version of the " +
+										"bean. This is often the result of over-eager type matching - consider using " +
+										"'getBeanNamesOfType' with the 'allowEagerInit' flag turned off, for example.");
 					}
 				}
 			}
@@ -619,27 +648,6 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		}
 
 		return exposedObject;
-	}
-
-	@Override
-	@Nullable
-	protected Class<?> predictBeanType(String beanName, RootBeanDefinition mbd, Class<?>... typesToMatch) {
-		Class<?> targetType = determineTargetType(beanName, mbd, typesToMatch);
-		// Apply SmartInstantiationAwareBeanPostProcessors to predict the
-		// eventual type after a before-instantiation shortcut.
-		if (targetType != null && !mbd.isSynthetic() && hasInstantiationAwareBeanPostProcessors()) {
-			for (BeanPostProcessor bp : getBeanPostProcessors()) {
-				if (bp instanceof SmartInstantiationAwareBeanPostProcessor) {
-					SmartInstantiationAwareBeanPostProcessor ibp = (SmartInstantiationAwareBeanPostProcessor) bp;
-					Class<?> predicted = ibp.predictBeanType(targetType, beanName);
-					if (predicted != null && (typesToMatch.length != 1 || FactoryBean.class != typesToMatch[0] ||
-							FactoryBean.class.isAssignableFrom(predicted))) {
-						return predicted;
-					}
-				}
-			}
-		}
-		return targetType;
 	}
 
 	/**

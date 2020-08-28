@@ -43,6 +43,9 @@ public interface BeanDefinition extends AttributeAccessor, BeanMetadataElement {
 	 * Scope identifier for the standard singleton scope: "singleton".
 	 * <p>Note that extended bean factories might support further scopes.
 	 * @see #setScope
+	 * 我们可以看到，默认只提供 sington 和 prototype 两种，
+	 *   很多读者可能知道还有 request, session, globalSession, application, websocket 这几种，
+	 *    不过，它们属于基于 web 的扩展。
 	 */
 	String SCOPE_SINGLETON = ConfigurableBeanFactory.SCOPE_SINGLETON;
 

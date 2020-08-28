@@ -4,4 +4,12 @@
        xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
 
 	<bean id="hello" class="priv.starfish.Hello"></bean>
+
+	<bean id="beanA" class="priv.starfish.cycledepend.BeanA">
+		<property name="beanB" ref="beanB"/>
+	</bean>
+
+	<bean id="beanB" class="priv.starfish.cycledepend.BeanB">
+		<property name="beanA" ref="beanA"/>
+	</bean>
 </beans>
