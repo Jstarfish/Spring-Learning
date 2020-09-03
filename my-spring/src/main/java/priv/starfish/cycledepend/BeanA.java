@@ -14,4 +14,9 @@ public class BeanA {
 	public void setBeanB(BeanB beanB) {
 		this.beanB = beanB;
 	}
+
+
+//	public BeanA(BeanB beanB) {
+//		this.beanB = beanB;
+//	}
 }

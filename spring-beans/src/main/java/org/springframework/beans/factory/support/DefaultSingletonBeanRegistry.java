@@ -183,6 +183,17 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 				singletonObject = this.earlySingletonObjects.get(beanName);
 				if (singletonObject == null && allowEarlyReference) {
 					// 二级缓存也没有，就去三级缓存找
+					/**
+					 * 三级缓存获取，key=beanName value=objectFactory，objectFactory中存储getObject()方法用于获取提前曝光的实例
+					 *
+					 * 而为什么不直接将实例缓存到二级缓存，而要多此一举将实例先封装到objectFactory中？
+					 * 主要关键点在getObject()方法并非直接返回实例，而是对实例又使用
+					 * SmartInstantiationAwareBeanPostProcessor的getEarlyBeanReference方法对bean进行处理
+					 *
+					 * 也就是说，当spring中存在该后置处理器，所有的单例bean在实例化后都会被进行提前曝光到三级缓存中，
+					 * 但是并不是所有的bean都存在循环依赖，也就是三级缓存到二级缓存的步骤不一定都会被执行，有可能曝光后直接创建完成，没被提前引用过，
+					 * 就直接被加入到一级缓存中。因此可以确保只有提前曝光且被引用的bean才会进行该后置处理
+					 */
 					ObjectFactory<?> singletonFactory = this.singletonFactories.get(beanName);
 					if (singletonFactory != null) {
 						// 三级缓存有的话，就把他移动到二级缓存
@@ -205,6 +216,7 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 	 * @return the registered singleton object
 	 */
 	public Object getSingleton(String beanName, ObjectFactory<?> singletonFactory) {
+		//System.out.println("------"+beanName);
 		Assert.notNull(beanName, "Bean name must not be null");
 		synchronized (this.singletonObjects) {
 			Object singletonObject = this.singletonObjects.get(beanName);
@@ -250,6 +262,7 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 					afterSingletonCreation(beanName);
 				}
 				if (newSingleton) {
+					//System.out.println("newSingleton："+beanName);
 					// 添加 bean 到 singletonObjects 缓存（一级缓存）中，并从其他集合中将 bean 相关记录移除
 					addSingleton(beanName, singletonObject);
 				}

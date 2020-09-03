@@ -455,6 +455,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 	@Override
 	protected Object createBean(String beanName, RootBeanDefinition mbd, @Nullable Object[] args)
 			throws BeanCreationException {
+		System.out.println("Creating instance of bean '" + beanName + "'");
 
 		if (logger.isDebugEnabled()) {
 			logger.debug("Creating instance of bean '" + beanName + "'");
@@ -591,6 +592,9 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 						"' to allow for resolving potential circular references");
 			}
 			// 添加 bean 工厂对象到 singletonFactories 缓存中，并获取原始对象的早期引用
+			//匿名内部方法 getEarlyBeanReference 就是后置处理器
+			// SmartInstantiationAwareBeanPostProcessor 的一个方法，
+			// 它的功效为：保证自己被循环依赖的时候，即使被别的Bean @Autowire进去的也是代理对象~~~~  AOP自动代理创建器此方法里会创建的代理对象~~~
 			addSingletonFactory(beanName, () -> getEarlyBeanReference(beanName, mbd, bean));
 		}
 
@@ -600,6 +604,9 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			// ☆ 填充属性，解析依赖
 			populateBean(beanName, mbd, instanceWrapper);
 			exposedObject = initializeBean(beanName, exposedObject, mbd);
+
+			// 因为事务的AOP自动代理创建器在getEarlyBeanReference 创建代理后，initializeBean 就不会再重复创建了，二选一的）
+			// 所以经过这两大步后，exposedObject 还是原始对象，通过 getEarlyBeanReference 创建的代理对象还在三级缓存呢
 		}
 		catch (Throwable ex) {
 			if (ex instanceof BeanCreationException && beanName.equals(((BeanCreationException) ex).getBeanName())) {
@@ -612,9 +619,13 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		}
 
 		if (earlySingletonExposure) {
+			// 注意此处第二个参数传的false，表示不去三级缓存里singletonFactories再去调用一次getObject()方法了~~~
+			// 上面建讲到了由于B在初始化的时候，会触发A的ObjectFactory.getObject()  所以a此处已经在二级缓存earlySingletonObjects里了
+			// 因此此处返回A的实例：A@1234
 			Object earlySingletonReference = getSingleton(beanName, false);
 			if (earlySingletonReference != null) {
 				if (exposedObject == bean) {
+					// 这个判断不可少（因为如果initializeBean改变了exposedObject ，就不能这么玩了，否则就是两个对象了~~~）
 					exposedObject = earlySingletonReference;
 				}
 				else if (!this.allowRawInjectionDespiteWrapping && hasDependentBean(beanName)) {
@@ -861,6 +872,32 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 	}
 
 	/**
+	 * Obtain a reference for early access to the specified bean,
+	 * typically for the purpose of resolving a circular reference.
+	 * @param beanName the name of the bean (for error handling purposes)
+	 * @param mbd the merged bean definition for the bean
+	 * @param bean the raw bean instance
+	 * @return the object to expose as bean reference
+	 */
+	protected Object getEarlyBeanReference(String beanName, RootBeanDefinition mbd, Object bean) {
+		System.out.println("getEarlyBeanReference:"+beanName);
+		Object exposedObject = bean;
+		if (!mbd.isSynthetic() && hasInstantiationAwareBeanPostProcessors()) {
+			for (BeanPostProcessor bp : getBeanPostProcessors()) {
+				if (bp instanceof SmartInstantiationAwareBeanPostProcessor) {
+					SmartInstantiationAwareBeanPostProcessor ibp = (SmartInstantiationAwareBeanPostProcessor) bp;
+					/* 这么一大段就这句话是核心，也就是当bean要进行提前曝光时，
+					 给一个机会，通过重写后置处理器的getEarlyBeanReference方法，来自定义操作bean
+					 值得注意的是，如果提前曝光了，但是没有被提前引用，则该后置处理器并不生效!!!
+					 这也正式三级缓存存在的意义，否则二级缓存就可以解决循环依赖的问题*/
+					exposedObject = ibp.getEarlyBeanReference(exposedObject, beanName);
+				}
+			}
+		}
+		return exposedObject;
+	}
+
+	/**
 	 * Introspect the factory method signatures on the given bean class,
 	 * trying to find a common {@code FactoryBean} object type declared there.
 	 * @param beanClass the bean class to find the factory method on
@@ -888,27 +925,6 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		});
 
 		return (objectType.value != null && Object.class != objectType.value ? objectType.value : null);
-	}
-
-	/**
-	 * Obtain a reference for early access to the specified bean,
-	 * typically for the purpose of resolving a circular reference.
-	 * @param beanName the name of the bean (for error handling purposes)
-	 * @param mbd the merged bean definition for the bean
-	 * @param bean the raw bean instance
-	 * @return the object to expose as bean reference
-	 */
-	protected Object getEarlyBeanReference(String beanName, RootBeanDefinition mbd, Object bean) {
-		Object exposedObject = bean;
-		if (!mbd.isSynthetic() && hasInstantiationAwareBeanPostProcessors()) {
-			for (BeanPostProcessor bp : getBeanPostProcessors()) {
-				if (bp instanceof SmartInstantiationAwareBeanPostProcessor) {
-					SmartInstantiationAwareBeanPostProcessor ibp = (SmartInstantiationAwareBeanPostProcessor) bp;
-					exposedObject = ibp.getEarlyBeanReference(exposedObject, beanName);
-				}
-			}
-		}
-		return exposedObject;
 	}
 
 

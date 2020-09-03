@@ -10,7 +10,12 @@ import org.springframework.stereotype.Component;
 @Component
 public class BeanB {
 	private BeanA beanA;
-	public void setBeanA(BeanA beanA) {
+//	public void setBeanA(BeanA beanA) {
+//		this.beanA = beanA;
+//	}
+
+
+	public BeanB(BeanA beanA) {
 		this.beanA = beanA;
 	}
 }

@@ -16,6 +16,8 @@ public class MyApplication {
 //		Hello hello = (Hello)context.getBean("hello");
 //		hello.sayHello();
 
+		System.out.println("===========");
+
 		BeanA beanA = (BeanA) context.getBean("beanA");
 		System.out.println(beanA);
 	}
