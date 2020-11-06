@@ -533,27 +533,35 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 
 			try {
 				// Allows post-processing of the bean factory in context subclasses.
+				//提供给子类实现一些postProcess的注册，如AbstractRefreshableWebApplicationContext注册一些Servlet相关的
 				postProcessBeanFactory(beanFactory);
 
 				// Invoke factory processors registered as beans in the context.
+				//调用所有BeanFactoryProcessor的postProcessBeanFactory()方法
 				invokeBeanFactoryPostProcessors(beanFactory);
 
 				// Register bean processors that intercept bean creation.
+				//注册BeanPostProcessor，BeanPostProcessor作用是用于拦截Bean的创建
 				registerBeanPostProcessors(beanFactory);
 
 				// Initialize message source for this context.
+				//初始化消息Bean
 				initMessageSource();
 
 				// Initialize event multicaster for this context.
+				//初始化上下文的事件多播组建，ApplicationEvent触发时由multicaster通知给ApplicationListener
 				initApplicationEventMulticaster();
 
 				// Initialize other special beans in specific context subclasses.
+				//ApplicationContext初始化一些特殊的bean
 				onRefresh();
 
 				// Check for listener beans and register them.
+				//注册事件监听器，事件监听Bean统一注册到multicaster里头，ApplicationEvent事件触发后会由multicaster广播
 				registerListeners();
 
 				// Instantiate all remaining (non-lazy-init) singletons.(重点)
+				// 非延迟加载的单例Bean实例化
 				finishBeanFactoryInitialization(beanFactory);
 
 				// Last step: publish corresponding event.(最后，广播事件，ApplicationContext 初始化完成)
@@ -590,6 +598,8 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	 */
 	protected void prepareRefresh() {
 		// Switch to active.
+		// 记录启动时间，
+		// 将 active 属性设置为 true，closed 属性设置为 false，它们都是 AtomicBoolean 类型
 		this.startupDate = System.currentTimeMillis();
 		this.closed.set(false);
 		this.active.set(true);
@@ -603,6 +613,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 
 		// Validate that all properties marked as required are resolvable:
 		// see ConfigurablePropertyResolver#setRequiredProperties
+		// 校验 xml 配置文件
 		getEnvironment().validateRequiredProperties();
 
 		// Store pre-refresh ApplicationListeners...
